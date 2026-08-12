@@ -180,6 +180,9 @@ describeIf('Reneo API', () => {
   it('rejects unauthenticated requests — 401', async () => {
     const res = await request(app).get('/products');
     expect(res.status).toBe(401);
+
+    const apiPrefixed = await request(app).get('/api/products');
+    expect(apiPrefixed.status).toBe(401);
   });
 
   it('rejects invalid input — 400', async () => {

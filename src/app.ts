@@ -22,8 +22,13 @@ export function createApp() {
   app.use(express.json({ strict: true }));
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
-  app.use('/products', productRoutes);
-  app.use('/orders', orderRoutes);
+
+  const apiRouter = express.Router();
+  apiRouter.use('/products', productRoutes);
+  apiRouter.use('/orders', orderRoutes);
+  // Serve both /products and /api/products (Vercel often sets VITE_API_URL with /api suffix).
+  app.use('/api', apiRouter);
+  app.use(apiRouter);
 
   app.get('/health', (_req, res) => {
     res.json({ status: 'ok' });
