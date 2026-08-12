@@ -95,11 +95,18 @@ Edit `.env` with your Supabase credentials:
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-DATABASE_URL=postgresql://postgres.[ref]:[password]@...pooler.supabase.com:5432/postgres
+DATABASE_URL=postgresql://postgres.[ref]:[password]@...pooler.supabase.com:6543/postgres
 PORT=3000
 ```
 
-> Use the **direct connection** (port 5432) for migrations. The pooler is fine for the running app.
+**Database connections** (Supabase → Project Settings → Database):
+
+| Connection type | Port | When to use |
+|-----------------|------|-------------|
+| **Direct connection** | `5432` | `npm run migrate` only |
+| **Transaction pooler** | `6543` | Running the app (`npm run dev`, production) |
+
+Copy the transaction pooler URI into `DATABASE_URL` for normal development and deployment. Use the direct connection string only when running migrations.
 
 ### 3. Migrate, seed, and run
 
@@ -127,7 +134,9 @@ npm test           # 17 integration tests (requires .env)
 
 ## Demo accounts
 
-After `npm run seed`, two seller accounts and their stores are ready to use. Sign in via the frontend (`http://localhost:5173/auth`) or Supabase Auth directly.
+> **For local development/demo only — not production credentials.**
+
+After `npm run seed`, two seller accounts and their stores are ready to use. Sign in via the optional frontend (`http://localhost:5173/auth`) or Supabase Auth directly.
 
 ### Demo Seller - 1 — Reneo Demo Store
 
@@ -363,7 +372,24 @@ RLS is enabled on all business tables using `auth.uid()`:
 
 Express middleware is the first line of defense; **RLS is the mandatory second line** against direct database access.
 
-RLS policy SQL lives in [`supabase/migrations/002_rls_policies.sql`](supabase/migrations/002_rls_policies.sql). Automated test #12 verifies Seller B cannot read Seller A's archived product via a user-scoped Supabase client.
+RLS policy SQL lives in [`supabase/migrations/002_rls_policies.sql`](supabase/migrations/002_rls_policies.sql). Automated test #16 verifies Seller B cannot read Seller A's archived product via a user-scoped Supabase client.
+
+### Why orders use raw `pg` (and how authorization still holds)
+
+Order creation needs a **single PostgreSQL transaction** with `SELECT … FOR UPDATE` row locks, conditional inventory updates, idempotency claiming, and outbox writes. The Supabase JS client does not expose this level of transactional control, so `OrderService` uses the `pg` pool directly.
+
+**Authorization is still enforced before any database write:**
+
+1. **Express middleware** validates the JWT and applies `requireRole('CUSTOMER')` before order logic runs
+2. **`customer_id` comes from the token** (`req.userId`) — never from the request body
+3. **Idempotency keys** are scoped per customer in SQL (`UNIQUE(customer_id, idempotency_key)`)
+
+**RLS remains the database-level backstop:**
+
+- Product CRUD and most reads use a **user-scoped Supabase client** where RLS applies via `auth.uid()`
+- RLS policies protect against direct PostgREST / Supabase dashboard access even if someone bypasses the API
+- The `pg` pool is a server-side connection used only inside authenticated route handlers — it is never exposed to clients
+- Product search via `pgPool` mirrors public RLS read rules in SQL; RLS still protects user-scoped Supabase access
 
 ---
 
@@ -434,6 +460,8 @@ At 1M+ rows the planner selects GIN + composite B-tree indexes instead of sequen
 
 ---
 
+## Order flow & concurrency
+
 ### Transaction steps
 
 1. Authenticate customer
@@ -458,7 +486,7 @@ At 1M+ rows the planner selects GIN + composite B-tree indexes instead of sequen
 | Tx A | Locks inventory row, decrements to 0, commits |
 | Tx B | Blocks on `FOR UPDATE`, then sees `quantity < 1` → **409 OUT_OF_STOCK** |
 
-With `stock = 1`, exactly **one** concurrent order succeeds. Verified by Test 5 (`Promise.all` race).
+With `stock = 1`, exactly **one** concurrent order succeeds. Verified by Test #9 (`Promise.all` race).
 
 ### What is atomic?
 
@@ -566,7 +594,7 @@ Tests require a configured `.env` pointing at a real Supabase project.
 
 ## Frontend
 
-Optional React marketplace UI in `frontend/`.
+Optional React marketplace UI in `frontend/` — not required by the backend brief; included for end-to-end demos only.
 
 ```bash
 cd frontend
@@ -636,7 +664,7 @@ See [`.env.example`](.env.example).
 | `SUPABASE_URL` | Yes | Supabase project URL |
 | `SUPABASE_ANON_KEY` | Yes | Public anon key (JWT verification) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Yes | Service role key (tests, seed, admin) |
-| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `DATABASE_URL` | Yes | PostgreSQL connection string — **transaction pooler (port 6543)** for the app; use **direct connection (port 5432)** only for `npm run migrate` |
 | `PORT` | No | HTTP port (default `3000`) |
 | `NODE_ENV` | No | `development` / `production` |
 | `IDEMPOTENCY_TTL_DAYS` | No | Key retention in days (default `7`) |
@@ -790,10 +818,10 @@ Mapping to the Reneo Backend Developer Internship brief:
 | **A3** Product API (CRUD + list own) | ✅ | [API reference](#api-reference) |
 | **A4** Search + pagination + EXPLAIN | ✅ | [Search, indexes & EXPLAIN](#search-indexes--explain) |
 | **A5** Server-side pricing | ✅ | [Order flow & concurrency](#order-flow--concurrency) |
-| **A6** RLS policies | ✅ | [`002_rls_policies.sql`](supabase/migrations/002_rls_policies.sql), test #12 |
+| **A6** RLS policies | ✅ | [`002_rls_policies.sql`](supabase/migrations/002_rls_policies.sql), test #16 |
 | **A7** Consistent errors (400–500) | ✅ | [Error handling](#error-handling) |
-| **B1** Concurrent stock | ✅ | [Concurrent stock](#concurrent-stock-critical), test #5 |
-| **B2** Idempotency | ✅ | [Idempotency](#idempotency), tests #9–10 |
+| **B1** Concurrent stock | ✅ | [Concurrent stock](#concurrent-stock-critical), test #9 |
+| **B2** Idempotency | ✅ | [Idempotency](#idempotency), tests #13–14 |
 | **B3** ORDER_CREATED events | ✅ | [Events](#events) |
 | **C** Five mandatory tests | ✅ | [Testing](#testing) — 17 tests total |
 | **D1** Scaling + diagram | ✅ | [Part D — Scaling](#part-d--scaling-to-10m-users) |
