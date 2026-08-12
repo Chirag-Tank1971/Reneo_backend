@@ -588,7 +588,17 @@ npm run dev:frontend
 | http://localhost:5173/seller | Seller Studio (create, edit, archive, restore) |
 | http://localhost:5173/cart | Cart & checkout |
 
-API requests proxy to `http://localhost:3000` via Vite.
+API requests proxy to `http://localhost:3000` via Vite in dev.
+
+### Deploying frontend on Vercel
+
+1. Set Vercel environment variables (same Supabase keys as backend):
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+   - `VITE_API_URL` = your **public backend URL** (not `/api` — Vite proxy is dev-only)
+2. On the backend host, allow the Vercel origin via CORS:
+   - `CORS_ORIGINS=https://your-app.vercel.app`, **or**
+   - `CORS_ALLOW_VERCEL_PREVIEWS=true` (default) to allow any `https://*.vercel.app` deploy/preview URL
 
 ---
 
@@ -605,6 +615,10 @@ See [`.env.example`](.env.example).
 | `PORT` | No | HTTP port (default `3000`) |
 | `NODE_ENV` | No | `development` / `production` |
 | `IDEMPOTENCY_TTL_DAYS` | No | Key retention in days (default `7`) |
+| `CORS_ORIGINS` | No* | Comma-separated frontend URLs allowed to call the API |
+| `CORS_ALLOW_VERCEL_PREVIEWS` | No | `true` (default) — allow `https://*.vercel.app` origins |
+
+\* In production, set `CORS_ORIGINS` to your Vercel URL **or** keep `CORS_ALLOW_VERCEL_PREVIEWS=true`.
 
 **Never commit `.env` or real credentials.**
 

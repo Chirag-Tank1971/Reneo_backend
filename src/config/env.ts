@@ -9,6 +9,13 @@ const envSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   DATABASE_URL: z.string().min(1),
   IDEMPOTENCY_TTL_DAYS: z.coerce.number().int().positive().default(7),
+  /** Comma-separated browser origins, e.g. https://reneo.vercel.app */
+  CORS_ORIGINS: z.string().optional(),
+  /** Allow any https://*.vercel.app origin (preview + production deploys). */
+  CORS_ALLOW_VERCEL_PREVIEWS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((value) => value === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;
