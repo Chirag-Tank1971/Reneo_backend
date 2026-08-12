@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { createCorsOriginChecker, parseCorsOrigins } from '../src/config/cors.js';
+import {
+  createCorsOriginChecker,
+  isOriginAllowed,
+  parseCorsOrigins,
+} from '../src/config/cors.js';
+
+const baseEnv = {
+  NODE_ENV: 'production' as const,
+  PORT: 3000,
+  SUPABASE_URL: 'https://example.supabase.co',
+  SUPABASE_ANON_KEY: 'anon',
+  SUPABASE_SERVICE_ROLE_KEY: 'service',
+  DATABASE_URL: 'postgres://localhost/test',
+  IDEMPOTENCY_TTL_DAYS: 7,
+};
 
 describe('CORS config', () => {
   it('allows localhost defaults in development', () => {
@@ -8,67 +22,60 @@ describe('CORS config', () => {
   });
 
   it('allows configured production origins', () => {
-    const check = createCorsOriginChecker({
-      NODE_ENV: 'production',
-      PORT: 3000,
-      SUPABASE_URL: 'https://example.supabase.co',
-      SUPABASE_ANON_KEY: 'anon',
-      SUPABASE_SERVICE_ROLE_KEY: 'service',
-      DATABASE_URL: 'postgres://localhost/test',
-      IDEMPOTENCY_TTL_DAYS: 7,
-      CORS_ORIGINS: 'https://reneo.vercel.app',
-      CORS_ALLOW_VERCEL_PREVIEWS: false,
-    });
-
-    expect(checkOrigin(check, 'https://reneo.vercel.app')).toBe(true);
-    expect(checkOrigin(check, 'https://evil.example')).toBe(false);
+    expect(
+      isOriginAllowed('https://reneo.vercel.app', {
+        ...baseEnv,
+        CORS_ORIGINS: 'https://reneo.vercel.app',
+        CORS_ALLOW_VERCEL_PREVIEWS: false,
+      }),
+    ).toBe(true);
+    expect(
+      isOriginAllowed('https://evil.example', {
+        ...baseEnv,
+        CORS_ORIGINS: 'https://reneo.vercel.app',
+        CORS_ALLOW_VERCEL_PREVIEWS: false,
+      }),
+    ).toBe(false);
   });
 
   it('allows vercel preview URLs when enabled', () => {
-    const check = createCorsOriginChecker({
-      NODE_ENV: 'production',
-      PORT: 3000,
-      SUPABASE_URL: 'https://example.supabase.co',
-      SUPABASE_ANON_KEY: 'anon',
-      SUPABASE_SERVICE_ROLE_KEY: 'service',
-      DATABASE_URL: 'postgres://localhost/test',
-      IDEMPOTENCY_TTL_DAYS: 7,
+    const env = {
+      ...baseEnv,
       CORS_ORIGINS: undefined,
       CORS_ALLOW_VERCEL_PREVIEWS: true,
-    });
+    };
 
-    expect(checkOrigin(check, 'https://reneo-git-main-user.vercel.app')).toBe(true);
-    expect(checkOrigin(check, 'http://localhost:5173')).toBe(false);
+    expect(
+      isOriginAllowed(
+        'https://reneo-frontend-ljxgze7w7-chirag-tank1971s-projects.vercel.app',
+        env,
+      ),
+    ).toBe(true);
+    expect(isOriginAllowed('https://reneo-git-main-user.vercel.app', env)).toBe(true);
+    expect(isOriginAllowed('http://localhost:5173', env)).toBe(false);
   });
 
   it('allows requests without Origin header', () => {
+    expect(
+      isOriginAllowed(undefined, {
+        ...baseEnv,
+        CORS_ORIGINS: 'https://reneo.vercel.app',
+        CORS_ALLOW_VERCEL_PREVIEWS: false,
+      }),
+    ).toBe(true);
+  });
+
+  it('uses callback form without error for denied origins', () => {
     const check = createCorsOriginChecker({
-      NODE_ENV: 'production',
-      PORT: 3000,
-      SUPABASE_URL: 'https://example.supabase.co',
-      SUPABASE_ANON_KEY: 'anon',
-      SUPABASE_SERVICE_ROLE_KEY: 'service',
-      DATABASE_URL: 'postgres://localhost/test',
-      IDEMPOTENCY_TTL_DAYS: 7,
-      CORS_ORIGINS: 'https://reneo.vercel.app',
+      ...baseEnv,
+      CORS_ORIGINS: undefined,
       CORS_ALLOW_VERCEL_PREVIEWS: false,
     });
 
-    expect(checkOrigin(check, undefined)).toBe(true);
+    let allowed = true;
+    check('https://blocked.example', (_err, result) => {
+      allowed = result === true;
+    });
+    expect(allowed).toBe(false);
   });
 });
-
-function checkOrigin(
-  checker: ReturnType<typeof createCorsOriginChecker>,
-  origin: string | undefined,
-): boolean {
-  let allowed = false;
-  let errored = false;
-
-  checker(origin, (err, result) => {
-    errored = Boolean(err);
-    allowed = Boolean(result);
-  });
-
-  return !errored && allowed;
-}

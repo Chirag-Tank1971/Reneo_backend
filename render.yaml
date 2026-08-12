@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: reneo-backend
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: CORS_ALLOW_VERCEL_PREVIEWS
+        value: 'true'

@@ -590,6 +590,23 @@ npm run dev:frontend
 
 API requests proxy to `http://localhost:3000` via Vite in dev.
 
+### Deploying backend on Render
+
+Use [`render.yaml`](render.yaml) or configure manually:
+
+| Setting | Value |
+|---------|--------|
+| Build Command | `npm install && npm run build` |
+| Start Command | `npm start` |
+| Health Check | `/health` |
+
+Required env vars: Supabase + `DATABASE_URL`, plus:
+
+```env
+NODE_ENV=production
+CORS_ALLOW_VERCEL_PREVIEWS=true
+```
+
 ### Deploying frontend on Vercel
 
 1. Set Vercel environment variables (same Supabase keys as backend):

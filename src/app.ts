@@ -9,9 +9,16 @@ import { openApiSpec } from './config/swagger.js';
 
 export function createApp() {
   const app = express();
+  const corsConfig = getCorsConfig();
 
-  app.use(helmet());
-  app.use(cors(getCorsConfig()));
+  // CORS must run before helmet so preflight responses include ACAO headers.
+  app.use(cors(corsConfig));
+  app.options(/.*/, cors(corsConfig));
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(express.json({ strict: true }));
 
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(openApiSpec));
