@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { createClient } from '@supabase/supabase-js';
 import type { Express } from 'express';
+import { createServerSupabaseClient } from '../src/config/supabase.js';
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,9 +17,7 @@ export function getAdminClient(): SupabaseClient {
   if (!hasTestEnv) {
     throw new Error('Test environment variables are not configured');
   }
-  return createClient(supabaseUrl!, serviceRoleKey!, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  return createServerSupabaseClient(supabaseUrl!, serviceRoleKey!);
 }
 
 export async function createTestUser(
@@ -50,9 +48,7 @@ export async function createTestUser(
     );
   }
 
-  const anon = createClient(supabaseUrl!, anonKey!, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const anon = createServerSupabaseClient(supabaseUrl!, anonKey!);
 
   const { data: session, error: signInError } = await anon.auth.signInWithPassword({
     email,

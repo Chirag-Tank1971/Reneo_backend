@@ -600,12 +600,20 @@ Use [`render.yaml`](render.yaml) or configure manually:
 | Start Command | `npm start` |
 | Health Check | `/health` |
 
-Required env vars: Supabase + `DATABASE_URL`, plus:
+Required env vars on Render (Settings → Environment):
 
 ```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+DATABASE_URL=postgresql://postgres.[ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
 NODE_ENV=production
 CORS_ALLOW_VERCEL_PREVIEWS=true
 ```
+
+Copy `DATABASE_URL` from **Supabase → Project Settings → Database → Connection string** (use the **Transaction pooler**, port `6543`). Product search uses direct Postgres; if `DATABASE_URL` is missing or wrong, `/products` returns **500** while auth still works.
+
+**Node.js on Render:** Supabase JS v2 initializes Realtime at client creation. Node 20 on Render has no native WebSocket — this repo uses the `ws` package via `createServerSupabaseClient()` in `src/config/supabase.ts`. Do not call raw `createClient()` in server code.
 
 ### Deploying frontend on Vercel
 

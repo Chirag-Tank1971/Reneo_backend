@@ -1,12 +1,13 @@
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getEnv } from '../src/config/env.js';
 import { getPgPool } from '../src/config/database.js';
+import { createServerSupabaseClient } from '../src/config/supabase.js';
 import { purgeUser } from './lib/purge-user.js';
 
 const TEST_EMAIL_SUFFIX = '@reneo-test.local';
 
-async function listAllUsers(admin: ReturnType<typeof createClient>) {
+async function listAllUsers(admin: SupabaseClient) {
   const users: Array<{ id: string; email?: string }> = [];
   let page = 1;
 
@@ -27,9 +28,7 @@ async function listAllUsers(admin: ReturnType<typeof createClient>) {
 
 async function main() {
   const env = getEnv();
-  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createServerSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
   const pool = getPgPool();
 
   const testUsers = (await listAllUsers(admin)).filter((user) =>

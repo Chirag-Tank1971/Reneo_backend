@@ -1,7 +1,8 @@
 import 'dotenv/config';
-import { createClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getEnv } from '../src/config/env.js';
 import { getPgPool } from '../src/config/database.js';
+import { createServerSupabaseClient } from '../src/config/supabase.js';
 
 type SampleProduct = {
   name: string;
@@ -183,7 +184,7 @@ const DEMO_SELLERS: DemoSellerConfig[] = [
 const DEMO_SELLER_1_EMAIL = 'demo-seller@reneo.local';
 
 async function deleteDemoSellerByEmail(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   email: string,
 ): Promise<void> {
   const { data: listData, error: listError } = await admin.auth.admin.listUsers({
@@ -253,7 +254,7 @@ async function deleteDemoSellerByEmail(
 }
 
 async function ensureDemoSeller(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   config: DemoSellerConfig,
 ) {
   const { data: listData } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
@@ -302,7 +303,7 @@ async function ensureDemoSeller(
 }
 
 async function seedProducts(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   storeId: string,
   storeName: string,
   products: SampleProduct[],
@@ -354,7 +355,7 @@ async function seedProducts(
 }
 
 async function restoreDemoCatalog(
-  admin: ReturnType<typeof createClient>,
+  admin: SupabaseClient,
   storeId: string,
   storeName: string,
 ): Promise<void> {
@@ -374,9 +375,7 @@ async function restoreDemoCatalog(
 async function main() {
   const resetDemoSeller1 = process.argv.includes('--reset-demo-seller-1');
   const env = getEnv();
-  const admin = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  const admin = createServerSupabaseClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
   if (resetDemoSeller1) {
     console.info('Resetting Demo Seller - 1...');

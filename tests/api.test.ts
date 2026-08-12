@@ -283,10 +283,9 @@ describeIf('RLS direct database access', () => {
     const pid = createRes.body.data.id;
     await authRequest(app, 'delete', `/products/${pid}`, sellerA.token);
 
-    const { createClient } = await import('@supabase/supabase-js');
-    const clientB = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
+    const { createServerSupabaseClient } = await import('../src/config/supabase.js');
+    const clientB = createServerSupabaseClient(process.env.SUPABASE_URL!, process.env.SUPABASE_ANON_KEY!, {
       global: { headers: { Authorization: `Bearer ${sellerB.token}` } },
-      auth: { autoRefreshToken: false, persistSession: false },
     });
 
     const { data } = await clientB.from('products').select('*').eq('id', pid).maybeSingle();

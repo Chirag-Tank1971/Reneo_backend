@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
-import { createClient } from '@supabase/supabase-js';
 import { getEnv } from '../config/env.js';
+import { getSupabaseAdmin } from '../config/database.js';
+import { createServerSupabaseClient } from '../config/supabase.js';
 import { unauthorized, forbidden } from '../utils/errors.js';
 import type { AuthUser } from '../types/index.js';
 
@@ -11,10 +12,7 @@ function extractBearerToken(req: Request): string | null {
 }
 
 async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
-  const env = getEnv();
-  const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const supabase = getSupabaseAdmin();
 
   const { data, error } = await supabase.from('profiles').select('role, email').eq('id', userId).single();
   if (error || !data) {
@@ -36,9 +34,7 @@ export async function authenticate(req: Request, _res: Response, next: NextFunct
     }
 
     const env = getEnv();
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
-      auth: { persistSession: false, autoRefreshToken: false },
-    });
+    const supabase = createServerSupabaseClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY);
 
     const { data, error } = await supabase.auth.getUser(token);
     if (error || !data.user) {

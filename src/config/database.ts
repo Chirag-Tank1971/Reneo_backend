@@ -1,16 +1,26 @@
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Pool, type PoolClient, type QueryResult, type QueryResultRow } from 'pg';
 import { getEnv } from './env.js';
+import { createServerSupabaseClient } from './supabase.js';
 
 let pgPoolInstance: Pool | null = null;
 let supabaseAdminInstance: SupabaseClient | null = null;
 
+function shouldUseSsl(connectionString: string, nodeEnv: string): boolean {
+  if (nodeEnv === 'production') return true;
+  return /supabase\.com/i.test(connectionString);
+}
+
 export function getPgPool(): Pool {
   if (!pgPoolInstance) {
+    const env = getEnv();
     pgPoolInstance = new Pool({
-      connectionString: getEnv().DATABASE_URL,
+      connectionString: env.DATABASE_URL,
       max: 20,
       idleTimeoutMillis: 30_000,
+      ssl: shouldUseSsl(env.DATABASE_URL, env.NODE_ENV)
+        ? { rejectUnauthorized: false }
+        : undefined,
     });
   }
   return pgPoolInstance;
@@ -36,9 +46,10 @@ export const pgPool = {
 export function getSupabaseAdmin(): SupabaseClient {
   if (!supabaseAdminInstance) {
     const env = getEnv();
-    supabaseAdminInstance = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
+    supabaseAdminInstance = createServerSupabaseClient(
+      env.SUPABASE_URL,
+      env.SUPABASE_SERVICE_ROLE_KEY,
+    );
   }
   return supabaseAdminInstance;
 }
@@ -46,9 +57,8 @@ export function getSupabaseAdmin(): SupabaseClient {
 /** User-scoped client factory — RLS enforced via JWT. */
 export function createUserSupabaseClient(accessToken: string): SupabaseClient {
   const env = getEnv();
-  return createClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
+  return createServerSupabaseClient(env.SUPABASE_URL, env.SUPABASE_ANON_KEY, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { autoRefreshToken: false, persistSession: false },
   });
 }
 
