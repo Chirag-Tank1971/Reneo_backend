@@ -51,7 +51,7 @@ Includes an optional React frontend for end-to-end demos.
 | Security | Express middleware + PostgreSQL RLS |
 | Events | `ORDER_CREATED` outbox for seller notifications |
 | Docs | OpenAPI / Swagger UI at `/docs` |
-| Tests | 13 integration tests including concurrent race |
+| Tests | 17 integration tests including concurrent race |
 
 ---
 
@@ -82,7 +82,7 @@ Includes an optional React frontend for end-to-end demos.
 
 ```bash
 git clone <your-repo-url>
-cd reneo-backend
+cd reneo/backend
 npm install
 cp .env.example .env
 ```
@@ -120,7 +120,7 @@ Open Swagger: **http://localhost:3000/docs**
 ### 4. Run tests
 
 ```bash
-npm test           # 13/13 integration tests (requires .env)
+npm test           # 17 integration tests (requires .env)
 ```
 
 ---
@@ -189,27 +189,28 @@ npm run seed
 ## Project structure
 
 ```
-reneo-backend/
-├── src/
-│   ├── config/          # env, database, swagger
-│   ├── controllers/     # HTTP handlers
-│   ├── middleware/      # auth, validation, errors
-│   ├── repositories/    # data access (Supabase + raw SQL)
-│   ├── routes/          # route definitions
-│   ├── services/        # orders, events
-│   ├── types/           # shared TypeScript types
-│   ├── utils/           # helpers, error classes
-│   ├── app.ts           # Express app setup
-│   └── server.ts        # entry point
-├── supabase/migrations/ # SQL schema, RLS, indexes
-├── scripts/
-│   ├── migrate.ts       # run migrations
-│   ├── seed.ts          # demo sellers + products
-│   └── explain.ts       # EXPLAIN product search query
-├── tests/
-│   └── api.test.ts      # integration tests
-├── frontend/            # optional React UI
-└── docker-compose.yml   # local Postgres (optional)
+reneo/
+├── backend/
+│   ├── src/
+│   │   ├── config/          # env, database, swagger
+│   │   ├── controllers/     # HTTP handlers
+│   │   ├── middleware/      # auth, validation, errors
+│   │   ├── repositories/    # data access (Supabase + raw SQL)
+│   │   ├── routes/          # route definitions
+│   │   ├── services/        # orders, events
+│   │   ├── types/           # shared TypeScript types
+│   │   ├── utils/           # helpers, error classes
+│   │   ├── app.ts           # Express app setup
+│   │   └── server.ts        # entry point
+│   ├── supabase/migrations/ # SQL schema, RLS, indexes
+│   ├── scripts/
+│   │   ├── migrate.ts       # run migrations
+│   │   ├── seed.ts          # demo sellers + products
+│   │   └── explain.ts       # EXPLAIN product search query
+│   ├── tests/
+│   │   └── api.test.ts      # integration tests
+│   └── docker-compose.yml   # local Postgres (optional)
+└── frontend/                # optional React UI
 ```
 
 ---
@@ -520,23 +521,27 @@ npm run typecheck     # TypeScript check
 npm run build         # compile to dist/
 ```
 
-### Scenarios covered (13 tests)
+### Scenarios covered (17 tests)
 
 | # | Scenario | Expected |
 |---|----------|----------|
 | 1 | Seller A creates product | Success |
 | 2 | Seller B modifies Seller A product | Denied |
-| 3 | Customer orders available product | 201 |
-| 4 | Customer orders more than stock | 409 |
-| 5 | **Concurrent orders, stock = 1** | One 201, one 409 |
-| 6 | Unauthenticated request | 401 |
-| 7 | Invalid input | 400 |
-| 8 | Price manipulation in payload | 400 |
-| 9 | Duplicate idempotency key | 201 (same order) |
-| 10 | Same key, different payload | 409 |
-| 11 | Invalid product ID | 404 |
-| 12 | RLS — Seller B cannot read Seller A archived product | Blocked |
-| 13 | Env guard when not configured | Skipped |
+| 3 | Seller A `GET /products/mine` lists only own products | Scoped |
+| 4 | `GET /products?mine=true` rejected | 403 |
+| 5 | Marketplace list includes store/seller names | Names present |
+| 6 | Seller B cannot archive Seller A product | Denied |
+| 7 | Customer orders available product | 201 |
+| 8 | Customer orders more than stock | 409 |
+| 9 | **Concurrent orders, stock = 1** | One 201, one 409 |
+| 10 | Unauthenticated request | 401 |
+| 11 | Invalid input | 400 |
+| 12 | Price manipulation in payload | 400 |
+| 13 | Duplicate idempotency key | 201 (same order) |
+| 14 | Same key, different payload | 409 |
+| 15 | Invalid product ID | 404 |
+| 16 | RLS — Seller B cannot read Seller A archived product | Blocked |
+| 17 | Env guard when not configured | Skipped |
 
 Tests require a configured `.env` pointing at a real Supabase project.
 
@@ -552,6 +557,8 @@ Tests require a configured `.env` pointing at a real Supabase project.
 | `npm test` | Integration tests |
 | `npm run migrate` | Apply SQL migrations |
 | `npm run seed` | Create demo sellers + products |
+| `npm run seed:reset-demo-seller-1` | Delete and re-seed Demo Seller - 1 |
+| `npm run cleanup:test-data` | Remove `@reneo-test.local` test users |
 | `npm run explain` | Print EXPLAIN plan for product search |
 | `npm run dev:frontend` | Start React frontend |
 
@@ -749,7 +756,7 @@ Mapping to the Reneo Backend Developer Internship brief:
 | **B1** Concurrent stock | ✅ | [Concurrent stock](#concurrent-stock-critical), test #5 |
 | **B2** Idempotency | ✅ | [Idempotency](#idempotency), tests #9–10 |
 | **B3** ORDER_CREATED events | ✅ | [Events](#events) |
-| **C** Five mandatory tests | ✅ | [Testing](#testing) — 13 tests total |
+| **C** Five mandatory tests | ✅ | [Testing](#testing) — 17 tests total |
 | **D1** Scaling + diagram | ✅ | [Part D — Scaling](#part-d--scaling-to-10m-users) |
 | **D2** Two more days | ✅ | [Part D — Two more days](#part-d--two-more-days) |
 | **D3** AI / library usage | ✅ | [Part D — AI & library usage](#part-d--ai--library-usage) |
@@ -764,5 +771,3 @@ Mapping to the Reneo Backend Developer Internship brief:
 ## License
 
 MIT
-#   R e n e o _ b a c k e n d  
- 
